@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>iOS Local File Browser</title>
+<style>
+:root{
+  --bg:#0b0c0f; --panel:#14161b; --panel2:#1b1e25; --text:#f5f7fb;
+  --muted:#9ca3af; --line:#2a2f3a; --accent:#0a84ff; --danger:#ff453a;
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#f6f7f9;--panel:#fff;--panel2:#f0f2f5;--text:#111318;--muted:#667085;--line:#d9dde5;--accent:#007aff;--danger:#ff3b30;}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+body{min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:14px 16px}
+h1{font-size:20px;margin:0 0 4px} .sub{color:var(--muted);font-size:12px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button,.button{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:10px 12px;font-weight:600;cursor:pointer}
+button.primary,.button.primary{background:var(--accent);border-color:var(--accent);color:white}
+input[type=file]{display:none}
+main{padding:12px;display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:12px}
+@media(max-width:760px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.card h2{font-size:13px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+#drop{margin:12px;border:1px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted)}
+#list{max-height:70vh;overflow:auto}
+.row{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--panel2)} .row:first-child{border-top:0}
+.icon{font-size:20px}.name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{font-size:11px;color:var(--muted);margin-top:2px}
+.size{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.preview{padding:14px;min-height:220px}
+.preview img,.preview video{max-width:100%;border-radius:12px}
+.preview audio{width:100%}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--panel2);padding:12px;border-radius:12px;max-height:55vh;overflow:auto}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:13px}
+.kv b{color:var(--muted);font-weight:500}
+.notice{margin:12px;padding:10px 12px;border-radius:12px;background:var(--panel2);font-size:12px;color:var(--muted)}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+<script type="text/javascript" nonce="b9cebbc75fbc4601aaf7f7b2a9c" src="//local.adguard.org?ts=1791329740793&amp;type=content-script&amp;dmn=mail-attachment.googleusercontent.com&amp;url=https%3A%2F%2Fmail-attachment.googleusercontent.com%2Fattachment%2Fu%2F0%2F%3Fui%3D2%26ik%3D39e238a76d%26attid%3D0.1%26permmsgid%3Dmsg-a%3Ar-332473050977763680%26view%3Datt%26disp%3Dsafe%26realattid%3D81D2D8EE-0B62-482F-BB8F-3B73AEDD5525%26zw%26saddbat%3DANGjdJ-yz1xZoEOUeuKo8fKk2Oyna2SF0xBqIl_zzAjh43l9_zHJgOhGVZ_Iro0ovxksmk66IMeVC0_VokFAYrqFitWfgRZGtiX_yfXdNEiMWENKn2LlsN3ELSAvOKdegZz3pN8hTZv0kgzmytdl-Db9Sl_XaN3tpsfvLAQZP0ltSDJzs4hVhXq6G_83Tg2DyVNISJbO6r2MqGSzq3ERG2sAEbHxOwTvgZElVsOrnyAfL2NAVztfMpxM97f_2m9xrdsJ87TY59GMSpvNE-_QWRvyFbjRCwubJrO50XDnYnXY0ZulVieA4L3X0Y_2YWtIpgZPMsCxceek1F6Eah6wsr5aaD9QveRfl_HzdAZzpAoD6fkvjgb2O-6E6-p5QxQX-tfuDVmZ0BsweeOaXqNnzJPKfBL6yM-EOibd4ya-WNEB8Oe7gcJF6r9d0NxCbbZruyDKg9ZzBssPJl8ZpiCWPGFMWCDC052jsZdYEDt2WqkmDydicJO_yk9BAp1CpApY3r0_5dC7VlHNhrMarScdD8kR3EPbNlx7zHV5aH0NGbJfuvfkjad3UmczBkc-hbHHkKATKxeUMhZ2uEFX-spFE5U0Nzv_5wqO2wvgbr0Pqmk1jHR7UnyCsOuCTuldu-JX4t28mh76O1XpP-RmEqE7zatoxo1WUTraZbF-mG5OD-cW7h7GAp9te6On4iwWZNSnytt9bc3ocFTBPXI_0mEICNeFTc3WQnV9WH78TDsqx3OBwV1qO9ym_iVFhqCuonwYXnXUSpSbJrw-c8S7ugPq63K9db_ccHRkjA9YAK6mpN-vomkzishFiHeLvPyBzloIJ2PsZRlYzWETMmd2o_Ln1_3Uy_D7-kA9kvdbguIzmEKN3HS5eun-o-5-FKahPzt8Q7YHZknHumubr9XF_sL3b9GC8pFSLAqdPrZepYOfqbVcxzan0wvCnqL_Z5hYOlozkBepsO7IXfslvl-3VCzzsffcDGvCfiHrehhYtGomdfyDDnuAITgGjOPS3AVU4zOfgLRqCgeRWeFDRiresfLpNkCqXS0Wuxv9vwD9ZdjsqBuhjEFFuCGzse07sLGip1M&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="b9cebbc75fbc4601aaf7f7b2a9c" src="//local.adguard.org?ts=1791329740793&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+<body>
+<header>
+  <h1>iOS Local File Browser</h1>
+  <div class="sub">Client-side only. Files stay on-device unless you explicitly share them.</div>
+  <div class="toolbar">
+    <label class="button primary" for="files">Choose Files</label>
+    <input id="files" type="file" multiple>
+    <label class="button" for="folder">Choose Folder</label>
+    <input id="folder" type="file" webkitdirectory multiple>
+    <button id="clear">Clear</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Files</h2>
+    <div id="drop">Drop files here, or use <b>Choose Files</b>.</div>
+    <div class="notice">
+      iOS sandboxing still applies. This page cannot traverse <code>/private/var</code>,
+      another app's private container, or protected <code>file:///</code> paths.
+    </div>
+    <div id="list"><div class="empty">No files selected.</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Preview / Metadata</h2>
+    <div id="preview" class="preview"><div class="empty">Select a file.</div></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const filesInput = $('#files'), folderInput = $('#folder'), list = $('#list'), preview = $('#preview'), drop = $('#drop');
+let files = [];
+
+const humanSize = n => {
+  if (!Number.isFinite(n)) return '—';
+  const u=['B','KB','MB','GB','TB']; let i=0, v=n;
+  while(v>=1024 && i<u.length-1){v/=1024;i++}
+  return `${v.toFixed(v<10&&i?1:0)} ${u[i]}`;
+};
+
+function iconFor(f){
+  if(f.type.startsWith('image/')) return '🖼️';
+  if(f.type.startsWith('video/')) return '🎬';
+  if(f.type.startsWith('audio/')) return '🎵';
+  if(f.type.includes('pdf')) return '📕';
+  if(f.type.includes('json')) return '🧩';
+  if(f.type.startsWith('text/')) return '📄';
+  return '📦';
+}
+
+function addFileList(fl){
+  const seen = new Set(files.map(f => `${f.name}:${f.size}:${f.lastModified}:${f.webkitRelativePath||''}`));
+  for(const f of fl){
+    const key = `${f.name}:${f.size}:${f.lastModified}:${f.webkitRelativePath||''}`;
+    if(!seen.has(key)){ files.push(f); seen.add(key); }
+  }
+  render();
+}
+
+function render(){
+  if(!files.length){ list.innerHTML='<div class="empty">No files selected.</div>'; return; }
+  list.innerHTML='';
+  files
+    .sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name))
+    .forEach((f,i)=>{
+      const row=document.createElement('div'); row.className='row';
+      const path=f.webkitRelativePath||f.name;
+      row.innerHTML=`
+        <div class="icon">${iconFor(f)}</div>
+        <div>
+          <div class="name">${escapeHTML(path)}</div>
+          <div class="meta">${escapeHTML(f.type||'unknown type')}</div>
+        </div>
+        <div class="size">${humanSize(f.size)}</div>`;
+      row.onclick=()=>showFile(f);
+      list.appendChild(row);
+    });
+}
+
+function escapeHTML(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function showFile(f){
+  const url=URL.createObjectURL(f);
+  const meta = `
+    <div class="kv">
+      <b>Name</b><span>${escapeHTML(f.name)}</span>
+      <b>Relative path</b><span>${escapeHTML(f.webkitRelativePath||'—')}</span>
+      <b>MIME</b><span>${escapeHTML(f.type||'—')}</span>
+      <b>Size</b><span>${humanSize(f.size)} (${f.size.toLocaleString()} bytes)</span>
+      <b>Modified</b><span>${f.lastModified ? new Date(f.lastModified).toLocaleString() : '—'}</span>
+    </div><hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`;
+
+  if(f.type.startsWith('image/')){
+    preview.innerHTML=meta+`<img src="${url}" alt="">`;
+  } else if(f.type.startsWith('video/')){
+    preview.innerHTML=meta+`<video src="${url}" controls playsinline></video>`;
+  } else if(f.type.startsWith('audio/')){
+    preview.innerHTML=meta+`<audio src="${url}" controls></audio>`;
+  } else if(f.type.startsWith('text/') || /\.(txt|md|json|js|css|html|xml|csv|log|yaml|yml)$/i.test(f.name)){
+    const text=await f.text();
+    preview.innerHTML=meta+`<pre>${escapeHTML(text.slice(0,100000))}${text.length>100000?'\n\n[preview truncated]':''}</pre>`;
+  } else if(f.type==='application/pdf'){
+    preview.innerHTML=meta+`<iframe src="${url}" style="width:100%;height:65vh;border:0;border-radius:12px;background:white"></iframe>`;
+  } else {
+    preview.innerHTML=meta+`
+      <p>This file type has no inline preview.</p>
+      <a class="button primary" href="${url}" download="${escapeHTML(f.name)}">Open / Save File</a>`;
+  }
+}
+
+filesInput.addEventListener('change',e=>addFileList(e.target.files));
+folderInput.addEventListener('change',e=>addFileList(e.target.files));
+$('#clear').onclick=()=>{files=[];filesInput.value='';folderInput.value='';render();preview.innerHTML='<div class="empty">Select a file.</div>'};
+
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='var(--accent)'}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='var(--line)'}));
+drop.addEventListener('drop',e=>addFileList(e.dataTransfer.files));
+
+render();
+</script>
+</body>
+</html>

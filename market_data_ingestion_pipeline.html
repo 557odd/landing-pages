@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Market Data Ingestion Pipeline</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --line:#223055;
+      --text:#e9eefc;
+      --muted:#9fb0d0;
+      --accent:#7cb7ff;
+      --good:#54d18f;
+      --warn:#ffcc66;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Inter, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(124,183,255,.15), transparent 30%),
+        linear-gradient(180deg, #08101f 0%, #0b1020 100%);
+      color:var(--text);
+    }
+    header{
+      padding:22px 24px;
+      border-bottom:1px solid var(--line);
+      background:rgba(8,16,31,.85);
+      position:sticky; top:0; backdrop-filter: blur(10px);
+      z-index:10;
+    }
+    header h1{margin:0;font-size:24px;letter-spacing:.4px}
+    header p{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+    .wrap{padding:18px;max-width:1400px;margin:0 auto}
+    .topgrid{
+      display:grid;
+      grid-template-columns: 1.3fr 1fr 1fr 1fr;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(18,26,51,.95), rgba(15,23,48,.95));
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      box-shadow:0 8px 30px rgba(0,0,0,.25);
+    }
+    .metric{font-size:26px;font-weight:700;margin-top:8px}
+    .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+    .status-good{color:var(--good)}
+    .status-warn{color:var(--warn)}
+    .status-accent{color:var(--accent)}
+
+    .pipeline{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:12px;
+      margin:14px 0;
+    }
+    .step{
+      position:relative;
+      min-height:116px;
+      cursor:pointer;
+      transition:.16s transform ease, .16s border-color ease;
+    }
+    .step:hover{transform:translateY(-2px); border-color:rgba(124,183,255,.8)}
+    .step .title{font-weight:700;font-size:16px;margin:0 0 6px}
+    .step .desc{color:var(--muted);font-size:13px;line-height:1.45}
+    .pill{
+      display:inline-block;
+      padding:4px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+      font-size:11px;
+      margin-top:10px;
+    }
+
+    .arrow{
+      display:flex;align-items:center;justify-content:center;
+      color:var(--accent);font-size:28px;font-weight:700;
+      opacity:.7;
+    }
+
+    .main{
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .navbtn{
+      width:100%;
+      display:block;
+      text-align:left;
+      margin:8px 0 0;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#0d142a;
+      color:var(--text);
+      cursor:pointer;
+      transition:.15s;
+    }
+    .navbtn:hover, .navbtn.active{
+      border-color:rgba(124,183,255,.85);
+      background:#111b39;
+    }
+    .navbtn small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+    .content{min-height:520px}
+    .content h2{margin:0 0 8px}
+    .content p{color:var(--muted);line-height:1.55}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .table{
+      width:100%;
+      border-collapse:collapse;
+      overflow:hidden;
+      border-radius:12px;
+      margin-top:10px;
+      font-size:14px;
+    }
+    .table th, .table td{
+      border-bottom:1px solid var(--line);
+      padding:10px 8px;
+      text-align:left;
+    }
+    .table th{color:var(--muted);font-weight:600}
+    .codebox{
+      background:#091023;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px;
+      white-space:pre-wrap;
+      color:#cfe0ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:13px;
+      line-height:1.45;
+      margin-top:10px;
+    }
+    .footer{
+      margin:14px 0 8px;
+      color:var(--muted);
+      font-size:12px;
+      text-align:center;
+    }
+    @media (max-width: 1100px){
+      .topgrid{grid-template-columns:1fr 1fr}
+      .pipeline{grid-template-columns:1fr}
+      .arrow{display:none}
+      .main{grid-template-columns:1fr}
+    }
+  </style>
+<script type="text/javascript" nonce="b9cebbc75fbc4601aaf7f7b2a9c" src="//local.adguard.org?ts=1791329740793&amp;type=content-script&amp;dmn=mail-attachment.googleusercontent.com&amp;url=https%3A%2F%2Fmail-attachment.googleusercontent.com%2Fattachment%2Fu%2F0%2F%3Fui%3D2%26ik%3D39e238a76d%26attid%3D0.1%26permmsgid%3Dmsg-a%3Ar2539377173004690702%26view%3Datt%26disp%3Dsafe%26realattid%3D7F1F1D86-B795-460A-B657-9CF2EA5C9E81%26zw%26saddbat%3DANGjdJ-zaygRW-HiyPc-0P83rhSuHIFV_LpBvnLKr25AUzwYF1hUu0JS6dCIuBsGQ6IdyQqtOTVrTb3uTEgr9LikLwFu_qpOsL4xhPyLeCnX38fG864z-i5RhjFLhmCWyYkhVRZ4_uN9otONxz8jcry8f6im9Cxz-SMIOJcfzcdTH53LQrHShO1O1PGUmKH3nK1k2Vsksyx_5PnnrUtwLI0jpfyY5buiqv-Q6cYTtKnorI9a7_l6vWLkpic00fQqb5DTjy8rXWJoetqF0SnUD6iqpxL7Vmj07NY5-ecQ12-YGKVYn5u8m4p21l_hB6IxCOuET2lLAispNU-TXBFGshE4Qb-p_BvFNyUqVLS6Qy7XpRCF0bh6FBZkZGuW2W_1msx6IMZJQ7czi452UEf6Xdfsg0y15xYVfM4hHuz0Cd4WUA3Nth8dGgKkA77LWmLjxzB0lIobAauip9s2AkzOlHYvLg98WKIyqCiL1DcReegX0iXfHFrH1ML1SpmkTb8BDAgsRBWvtClDNhLCHXTDqW2BcuetMf9tyPwE16_5cne6IconIqgdJO_mCV6Zleznsa-iKtHYl8S2ZpNBRaFGlhGgol9H_dVAAKnkXQ7kur373reZmirf261DMXfrMwwPiPLwu437RS7oe1AZoJbPJ-1V9cBflqYznCsqnCvQwij48wBurIClGZHgfywMiFaNDGEuZ0433eeky48rdWMEzEWOXZE5UsD3QKyzDpFKm7KakAqn_0IvHmQLEXVdi7MHQnNW9-nMYcTMVA6lCRNeqN4yhELnM4ERJPCtuR0i4NE16DwKeoPCYf_7myyMG64ZeKgXqInUvNz-a-yAoJBLYOV9zMEsWHIYipkCHMAeOfCMFgRcxrWwfOCmncB5pM_WbFNOcJ98h_moeJsA4Cn8ptCtml1KdHW5HUhEXZPAfghR_pPJmK-gI-4NMaoSFimbxJ_W-BVq3X2AOKthQqJWYu9EgK9VkiyWyCot9F9T6YUzoz2B43jiyLVcYSfKFfda8DqplytlHpILvIiaM_08c7bqkT3wDElu9fLj24Vch8OC4G8nR3fPTeBj7EVhweI&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="b9cebbc75fbc4601aaf7f7b2a9c" src="//local.adguard.org?ts=1791329740793&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+<body>
+  <header>
+    <h1>Market Data Ingestion Pipeline</h1>
+    <p>Single-file interactive prototype for yfinance, Polygon, Alpaca, and Nasdaq Data Link.</p>
+  </header>
+
+  <div class="wrap">
+    <div class="topgrid">
+      <div class="card">
+        <div class="label">Ingestion Status</div>
+        <div class="metric status-good">Online</div>
+        <div class="pill">Streaming + Historical</div>
+      </div>
+      <div class="card">
+        <div class="label">Active Sources</div>
+        <div class="metric status-accent">4</div>
+        <div class="pill">yfinance • Polygon • Alpaca • Nasdaq</div>
+      </div>
+      <div class="card">
+        <div class="label">Normalized Symbols</div>
+        <div class="metric">12,481</div>
+        <div class="pill">Equities • ETFs • Indices • Crypto</div>
+      </div>
+      <div class="card">
+        <div class="label">Freshness</div>
+        <div class="metric status-warn">&lt; 60s</div>
+        <div class="pill">Low-latency feed path</div>
+      </div>
+    </div>
+
+    <div class="pipeline">
+      <div class="card step" onclick="showPanel('collect')">
+        <div class="title">Collectors</div>
+        <div class="desc">Pull bars, quotes, corporate actions, and reference data from multiple providers.</div>
+        <div class="pill">API adapters</div>
+      </div>
+      <div class="arrow">➜</div>
+      <div class="card step" onclick="showPanel('normalize')">
+        <div class="title">Normalization</div>
+        <div class="desc">Convert provider-specific payloads into one canonical schema.</div>
+        <div class="pill">Schema harmonization</div>
+      </div>
+      <div class="arrow">➜</div>
+      <div class="card step" onclick="showPanel('store')">
+        <div class="title">Storage</div>
+        <div class="desc">Write time series to fast analytical storage and metadata to relational tables.</div>
+        <div class="pill">ClickHouse + Postgres</div>
+      </div>
+      <div class="arrow">➜</div>
+      <div class="card step" onclick="showPanel('serve')">
+        <div class="title">Serving Layer</div>
+        <div class="desc">Expose REST, WebSocket, and dashboard-ready endpoints.</div>
+        <div class="pill">API + realtime</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <div class="label">Modules</div>
+        <button class="navbtn active" onclick="showPanel('overview', this)">Overview<small>System summary and architecture</small></button>
+        <button class="navbtn" onclick="showPanel('collect', this)">Collectors<small>Provider adapters and backfill</small></button>
+        <button class="navbtn" onclick="showPanel('normalize', this)">Normalization<small>Canonical market schema</small></button>
+        <button class="navbtn" onclick="showPanel('store', this)">Storage<small>Timeseries and metadata</small></button>
+        <button class="navbtn" onclick="showPanel('serve', this)">Serving Layer<small>API, WebSocket, dashboard</small></button>
+        <button class="navbtn" onclick="showPanel('alerts', this)">Alerts<small>Rules, anomaly detection, routing</small></button>
+        <button class="navbtn" onclick="showPanel('deploy', this)">Deployment<small>Docker, Kubernetes, secrets</small></button>
+      </div>
+
+      <div class="card content" id="content">
+        <h2>Overview</h2>
+        <p>
+          This prototype shows a single-file market data platform that can ingest,
+          normalize, store, and expose market data from multiple vendors.
+        </p>
+
+        <div class="grid2">
+          <div class="card" style="margin:0">
+            <div class="label">Canonical Data Model</div>
+            <table class="table">
+              <tr><th>Field</th><th>Description</th></tr>
+              <tr><td>timestamp</td><td>Exchange or vendor timestamp</td></tr>
+              <tr><td>symbol</td><td>Normalized instrument identifier</td></tr>
+              <tr><td>source</td><td>Provider name</td></tr>
+              <tr><td>open/high/low/close</td><td>OHLC price fields</td></tr>
+              <tr><td>volume</td><td>Traded size</td></tr>
+            </table>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="label">Example Flow</div>
+            <div class="codebox">yfinance / Polygon / Alpaca / Nasdaq Data Link
+          ↓
+Collector adapters
+          ↓
+Validation + normalization
+          ↓
+Postgres metadata
+ClickHouse timeseries
+Redis cache
+          ↓
+REST + WebSocket API
+          ↓
+Dashboard / analytics / alerts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Single HTML prototype • Click modules to explore the architecture</div>
+  </div>
+
+  <script>
+    const content = document.getElementById('content');
+    const buttons = document.querySelectorAll('.navbtn');
+
+    function setActive(btn){
+      buttons.forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function showPanel(panel, btn){
+      if(btn) setActive(btn);
+
+      const panels = {
+        overview: `
+          <h2>Overview</h2>
+          <p>
+            Unified market data pipeline for equities, indices, ETFs, futures, and crypto.
+            The goal is a consistent ingestion layer regardless of vendor-specific quirks.
+          </p>
+          <div class="grid2">
+            <div class="card" style="margin:0">
+              <div class="label">Priority Feeds</div>
+              <table class="table">
+                <tr><th>Source</th><th>Best Use</th></tr>
+                <tr><td>yfinance</td><td>Free historical research</td></tr>
+                <tr><td>Polygon</td><td>Low-latency equities and crypto</td></tr>
+                <tr><td>Alpaca</td><td>Broker-linked market data</td></tr>
+                <tr><td>Nasdaq Data Link</td><td>Macro and alternate datasets</td></tr>
+              </table>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Operational Goals</div>
+              <div class="codebox">1. Backfill long history
+2. Stream live updates
+3. Deduplicate and reconcile
+4. Store efficiently
+5. Serve to apps and models</div>
+            </div>
+          </div>
+        `,
+        collect: `
+          <h2>Collectors</h2>
+          <p>
+            Each source uses its own adapter. Collectors handle authentication, retries,
+            pagination, rate limits, and vendor-specific format conversion.
+          </p>
+          <div class="codebox">class MarketCollector:
+    def fetch(self, symbol, start, end):
+        raise NotImplementedError
+
+Collectors:
+- yfinance_collector.py
+- polygon_collector.py
+- alpaca_collector.py
+- nasdaq_collector.py</div>
+        `,
+        normalize: `
+          <h2>Normalization</h2>
+          <p>
+            All provider payloads are mapped into a canonical schema so downstream storage
+            and analytics do not depend on vendor differences.
+          </p>
+          <div class="grid2">
+            <div class="card" style="margin:0">
+              <div class="label">Normalized Market Bar</div>
+              <div class="codebox">timestamp
+symbol
+source
+open
+high
+low
+close
+volume
+vwap
+adjusted_close</div>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Validation Rules</div>
+              <div class="codebox">- Remove duplicates
+- Sort by timestamp
+- Enforce timezone UTC
+- Fill or flag missing bars
+- Compare OHLC consistency
+- Track corporate actions</div>
+            </div>
+          </div>
+        `,
+        store: `
+          <h2>Storage</h2>
+          <p>
+            Postgres stores metadata and ingestion state, ClickHouse stores fast time-series
+            analytics, and Redis caches hot lookups.
+          </p>
+          <div class="grid2">
+            <div class="card" style="margin:0">
+              <div class="label">Storage Targets</div>
+              <table class="table">
+                <tr><th>Layer</th><th>Purpose</th></tr>
+                <tr><td>Postgres</td><td>Symbols, jobs, lineage</td></tr>
+                <tr><td>ClickHouse</td><td>Bars, ticks, aggregates</td></tr>
+                <tr><td>Redis</td><td>Recent values, locks</td></tr>
+              </table>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Example Schema</div>
+              <div class="codebox">CREATE TABLE market_bars (
+  timestamp TIMESTAMP,
+  symbol TEXT,
+  source TEXT,
+  open DOUBLE PRECISION,
+  high DOUBLE PRECISION,
+  low DOUBLE PRECISION,
+  close DOUBLE PRECISION,
+  volume BIGINT
+);</div>
+            </div>
+          </div>
+        `,
+        serve: `
+          <h2>Serving Layer</h2>
+          <p>
+            Data is exposed through REST endpoints for charts and research, plus WebSocket
+            streams for realtime dashboards and alerts.
+          </p>
+          <div class="codebox">/api/v1/bars
+/api/v1/quotes
+/api/v1/symbols
+/ws/market
+/ws/alerts
+/ws/news</div>
+        `,
+        alerts: `
+          <h2>Alerts</h2>
+          <p>
+            Rules and anomaly detection monitor feed health, price shocks, volume spikes,
+            stale data, and source divergence.
+          </p>
+          <div class="codebox">IF data_latency > threshold => warn
+IF price_delta > threshold => alert
+IF source_divergence > threshold => reconcile
+IF feed_missing => retry + fallback</div>
+        `,
+        deploy: `
+          <h2>Deployment</h2>
+          <p>
+            The platform can be containerized for local development or deployed as a
+            distributed stack with orchestration and monitoring.
+          </p>
+          <div class="codebox">docker-compose.yml
+kubernetes/
+terraform/
+monitoring/
+secrets/
+
+Optional services:
+- Kafka
+- Airflow
+- Prometheus
+- Grafana</div>
+        `
+      };
+      content.innerHTML = panels[panel] || panels.overview;
+    }
+  </script>
+</body>
+</html>
